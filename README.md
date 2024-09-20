@@ -35,22 +35,13 @@ need to code in some of the directories.
 
 ## Installing Dependencies
 
-We provide you a Docker image that has already installed all the dependencies. You can compile your codes directly in this Docker image.
-
-1. Install [Docker](https://docs.docker.com/).
-
-2. Run a docker container and mount the lab directory on it.
-
-```bash
-# Run this command in the root directory of the project
-docker run -it --privileged -p 2222:22 -v $(pwd):/home/stu/tiger-compiler ipadsse302/tigerlabs_env:latest  # or make docker-run
-```
+We provide you a Docker image that has already installed all the dependencies. You can compile your codes directly in this Docker image. Visit [https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-environment.html](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-environment.html) to find a detailed guide.
 
 ## Compiling and Debugging
 
 There are five makeable targets in total, including `test_slp`, `test_lex`, `test_parse`, `test_semant`,  and `tiger-compiler`.
 
-1. Run container environment and attach to it
+1. Run container environment and attach to it, here is a simple example:
 
 ```bash
 # Run container and directly attach to it
@@ -61,6 +52,8 @@ docker run -dt --privileged -p 2222:22 \
     -v $(pwd):/home/stu/tiger-compiler ipadsse302/tigerlabs_env:latest
 docker attach ${YOUR_CONTAINER_ID}
 ```
+
+You can also follow the guide on [https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-environment.html](https://ipads.se.sjtu.edu.cn/courses/compilers/tiger-compiler-environment.html) to build a container. It offers a user-friendly script for Windows users and addresses most networking issues related to Docker Hub.
 
 2. Build in the container environment
 
