@@ -90,6 +90,7 @@ class OpExp : public Exp {
  public:
   OpExp(Exp *left, BinOp oper, Exp *right)
       : left(left), oper(oper), right(right) {}
+
  int MaxArgs() const override;
  IntAndTable *Interp(Table *) const override;
 
@@ -102,6 +103,7 @@ class OpExp : public Exp {
 class EseqExp : public Exp {
  public:
   EseqExp(Stm *stm, Exp *exp) : stm(stm), exp(exp) {}
+
  int MaxArgs() const override;
  IntAndTable *Interp(Table *) const override;
 
@@ -116,17 +118,17 @@ class ExpList {
   // Hints: You may add interfaces like `int MaxArgs()`, `int NumExps()`,
   //        and ` IntAndTable *Interp(Table *)`
  virtual int MaxArgs() const = 0;
- virtual int exp_num() const = 0;
- virtual Table *PrintSumInterp(Table *) const = 0;
+ virtual int NumExps() const = 0;
+ virtual IntAndTable *InterpPrint(Table *) const = 0;
 };
 
 class PairExpList : public ExpList {
  public:
   PairExpList(Exp *exp, ExpList *tail) : exp(exp), tail(tail) {}
   // TODO: you'll have to add some definitions here (lab1).
- int MaxArgs() const override;
- int exp_num() const override;
- Table *PrintSumInterp(Table *) const override;
+int MaxArgs() const override;
+ int NumExps() const override;
+ IntAndTable *InterpPrint(Table *) const override;
 
  private:
   Exp *exp;
@@ -134,15 +136,12 @@ class PairExpList : public ExpList {
 };
 
 class LastExpList : public ExpList {
- friend Table *Stm::Interp(Table *) const;
-
  public:
   LastExpList(Exp *exp) : exp(exp) {}
   // TODO: you'll have to add some definitions here (lab1).
- // int exp_num() const override;
- int MaxArgs() const override;
- int exp_num() const override;
- Table *PrintSumInterp(Table *) const override;
+int MaxArgs() const override;
+ int NumExps() const override;
+ IntAndTable *InterpPrint(Table *) const override;
 
  private:
   Exp *exp;
