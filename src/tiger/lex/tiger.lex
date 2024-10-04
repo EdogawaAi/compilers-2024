@@ -160,6 +160,7 @@ invisible [\000-\040]
     "\\^"[A-Z]        {adjustStr(); string_buf_ += char(matched()[2] - 'A' + 1);}
 
     \n {adjustStr(); string_buf_ += '\n';}
+    \t {adjustStr(); string_buf_ += '\t';}
 }
 
 <IGNORE>  {
