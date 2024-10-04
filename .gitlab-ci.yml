@@ -1,11 +1,9 @@
 test_lab1:
-  image: ipadsse302/tigerlabs_env
+  image: ipadsse302/tigerlabs_env:2.0.0
   tags:
     - r743
   stage: test
   script:
-    - rm -rf scripts testdata
-    - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
     - make gradelab1
 test_lab2:
   image: ipadsse302/tigerlabs_env:2.0.0
@@ -13,6 +11,4 @@ test_lab2:
     - r743
   stage: test
   script:
-    - rm -rf scripts testdata
-    - cp -r /home/stu/upload.py /home/stu/scripts /home/stu/testdata .
     - make gradelab2
