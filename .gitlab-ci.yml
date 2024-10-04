@@ -1,5 +1,5 @@
 test_lab1:
-  image: ipadsse302/tigerlabs_env:2.0.0
+  image: ipadsse302/tigerlabs_env
   tags:
     - r743
   stage: test
