@@ -47,7 +47,7 @@ public:
 
 private:
   int comment_level_;
-  std::string string_buf_, ignore_buf_;
+  std::string string_buf_;
   int char_pos_;
   std::unique_ptr<err::ErrorMsg> errormsg_;
 

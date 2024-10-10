@@ -5,7 +5,7 @@
 digit [0-9]
 letter [a-zA-Z]
 digits {digit}+
-characters [0-9A-Za-z_]
+characters [_a-zA-Z0-9]
 quote \"
 invisible [\000-\040]
 
@@ -16,56 +16,6 @@ invisible [\000-\040]
 %x COMMENT STR IGNORE
 
 %%
-
- /*
-  * Below is examples, which you can wipe out
-  * and write regular expressions and actions of your own.
-  *
-  * All the tokens:
-  *   Parser::ID
-  *   Parser::STRING
-  *   Parser::INT
-  *   Parser::COMMA
-  *   Parser::COLON
-  *   Parser::SEMICOLON
-  *   Parser::LPAREN
-  *   Parser::RPAREN
-  *   Parser::LBRACK
-  *   Parser::RBRACK
-  *   Parser::LBRACE
-  *   Parser::RBRACE
-  *   Parser::DOT
-  *   Parser::PLUS
-  *   Parser::MINUS
-  *   Parser::TIMES
-  *   Parser::DIVIDE
-  *   Parser::EQ
-  *   Parser::NEQ
-  *   Parser::LT
-  *   Parser::LE
-  *   Parser::GT
-  *   Parser::GE
-  *   Parser::AND
-  *   Parser::OR
-  *   Parser::ASSIGN
-  *   Parser::ARRAY
-  *   Parser::IF
-  *   Parser::THEN
-  *   Parser::ELSE
-  *   Parser::WHILE
-  *   Parser::FOR
-  *   Parser::TO
-  *   Parser::DO
-  *   Parser::LET
-  *   Parser::IN
-  *   Parser::END
-  *   Parser::OF
-  *   Parser::BREAK
-  *   Parser::NIL
-  *   Parser::FUNCTION
-  *   Parser::VAR
-  *   Parser::TYPE
-  */
 
  /* reserved words */
  /*copilot saves my boring time*/
@@ -130,8 +80,8 @@ invisible [\000-\040]
 {quote} {adjust(); begin(StartCondition_::STR);}
 
 <STR>     {
-    "\\n"       {adjustStr(); string_buf_ += '\n';}
-    "\\t"       {adjustStr(); string_buf_ += '\t';}
+    \\n       {adjustStr(); string_buf_ += '\n';}
+    \\t       {adjustStr(); string_buf_ += '\t';}
 
     "\\"{digit}{digit}{digit} {
         adjustStr();
@@ -151,24 +101,10 @@ invisible [\000-\040]
     }
     .           {adjustStr(); string_buf_ += matched();}
 
-    "\\"{invisible}       {
-        adjustStr(); 
-        ignore_buf_ += matched();
-        begin(StartCondition_::IGNORE);
-    }
+    \\[ \n\t\f]+\\ {adjustStr();}
 
-    "\\^"[A-Z]        {adjustStr(); string_buf_ += char(matched()[2] - 'A' + 1);}
-
-    \n {adjustStr(); string_buf_ += '\n';}
-    \t {adjustStr(); string_buf_ += '\t';}
+    \\\^[A-Z]        {adjustStr(); string_buf_ += char(matched()[2] - 'A' + 1);}
 }
-
-<IGNORE>  {
-    "\\"              {adjustStr(); ignore_buf_ = ""; begin(StartCondition_::STR);}
-    {invisible}       {adjustStr(); ignore_buf_ += matched();}
-    .                 {adjustStr(); ignore_buf_ += matched(); string_buf_ += ignore_buf_; ignore_buf_ = ""; begin(StartCondition_::STR);}
-}
-
 
   /* comment handling */
 "/*" {adjust(); comment_level_++; begin(StartCondition_::COMMENT);}
