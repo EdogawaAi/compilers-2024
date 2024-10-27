@@ -40,8 +40,7 @@
 
  /* token priority */
  /* TODO: Put your lab3 code here */
-%left OR
-%left AND
+%left AND OR
 %nonassoc EQ NEQ LT LE GT GE
 %left PLUS MINUS 
 %left TIMES DIVIDE 
@@ -91,7 +90,6 @@ ifexp:
   IF exp THEN exp {$$ = new absyn::IfExp(scanner_.GetTokPos(), $2, $4, nullptr);} |
   IF LPAREN exp RPAREN THEN exp ELSE exp {$$ = new absyn::IfExp(scanner_.GetTokPos(), $3, $6, $8);} |
   IF LPAREN exp RPAREN THEN exp {$$ = new absyn::IfExp(scanner_.GetTokPos(), $3, $6, nullptr);};
-  /* 注意一下这里可能要改3, 6, 8 */
 
 whileexp:
   WHILE exp DO exp {$$ = new absyn::WhileExp(scanner_.GetTokPos(), $2, $4);} |
@@ -102,8 +100,8 @@ callexp:
   ID LPAREN RPAREN {$$ = new absyn::CallExp(scanner_.GetTokPos(), $1, new absyn::ExpList());};
 
 recordexp:
-  ID LBRACE rec RBRACE {$$ = new absyn::RecordExp(scanner_.GetTokPos(), $1, $3);} |
-  ID LBRACE RBRACE {$$ = new absyn::RecordExp(scanner_.GetTokPos(), $1, new absyn::EFieldList());};
+  ID LBRACE RBRACE {$$ = new absyn::RecordExp(scanner_.GetTokPos(), $1, new absyn::EFieldList());} |
+  ID LBRACE rec RBRACE {$$ = new absyn::RecordExp(scanner_.GetTokPos(), $1, $3);};
 
 exp:
   LET decs IN expseq END {$$ = new absyn::LetExp(scanner_.GetTokPos(), $2, $4);} |
@@ -113,10 +111,8 @@ exp:
   NIL {$$ = new absyn::NilExp(scanner_.GetTokPos());} |
   BREAK {$$ = new absyn::BreakExp(scanner_.GetTokPos());} |
   lvalue {$$ = new absyn::VarExp(scanner_.GetTokPos(), $1);} |
-  /* 这个也要留心一下 */
   lvalue ASSIGN exp {$$ = new absyn::AssignExp(scanner_.GetTokPos(), $1, $3);} |
   LPAREN sequencing_exps RPAREN {$$ = new absyn::SeqExp(scanner_.GetTokPos(), $2);} |
-  /* 也准备debug */
   LPAREN RPAREN {$$ = new absyn::VoidExp(scanner_.GetTokPos());} |
   FOR ID ASSIGN exp TO exp DO exp {$$ = new absyn::ForExp(scanner_.GetTokPos(), $2, $4, $6, $8);} |
   recordexp | ifexp | whileexp | callexp | opexp;
@@ -124,7 +120,6 @@ exp:
 rec:
   rec_one {$$ = new absyn::EFieldList($1);} |
   rec_one COMMA rec {$$ = $3; $$->Prepend($1);};
-  /* 这个也要改 */
 
 rec_one:
   ID EQ exp {$$ = new absyn::EField($1, $3);};
@@ -150,7 +145,6 @@ decs_nonempty_s:
 tydec:
   TYPE tydec_one {$$ = new absyn::NameAndTyList($2);} |
   TYPE tydec_one tydec {$$ = $3; $$->Prepend($2);};
-  /* 这个也要改 */
 
 fundec:
   FUNCTION fundec_one {$$ = new absyn::FunDecList($2);} |
@@ -161,11 +155,9 @@ tydec_one:
 
 fundec_one:
   ID LPAREN tyfields RPAREN COLON ID EQ exp {$$ = new absyn::FunDec(scanner_.GetTokPos(), $1, $3, $6, $8);} |
-  /* 这个也要改 */
   ID LPAREN RPAREN COLON ID EQ exp {$$ = new absyn::FunDec(scanner_.GetTokPos(), $1, new absyn::FieldList(), $5, $7);} |
   ID LPAREN tyfields RPAREN EQ exp {$$ = new absyn::FunDec(scanner_.GetTokPos(), $1, $3, nullptr, $6);} |
   ID LPAREN RPAREN EQ exp {$$ = new absyn::FunDec(scanner_.GetTokPos(), $1, new absyn::FieldList(), nullptr, $5);} |
-  /* 有可能是5 */
 
 
   ID LPAREN tyfields RPAREN COLON ID EQ LPAREN exp RPAREN {$$ = new absyn::FunDec(scanner_.GetTokPos(), $1, $3, $6, $9);} |
