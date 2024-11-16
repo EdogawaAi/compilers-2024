@@ -103,14 +103,16 @@ void buildCaculateDistance(std::shared_ptr<llvm::Module> ir_module)
     //Load 循环变量k
     llvm::Value *kValue = builder.CreateLoad(llvm::Type::getInt32Ty(ir_module->getContext()), k, "kValue");
 
+    //创建真假分支
+    llvm::BasicBlock *trueBlock = llvm::BasicBlock::Create(ir_module->getContext(), "trueBlock", caculateDistance);
+    llvm::BasicBlock *falseBlock = llvm::BasicBlock::Create(ir_module->getContext(), "falseBlock", caculateDistance);
+
     // 比较k是否小于3
     llvm::Value *cond = builder.CreateICmpSLT(kValue, llvm::ConstantInt::get(llvm::Type::getInt32Ty(ir_module->getContext()), 3), "cond");
-    builder.CreateCondBr(cond, for_loop, afterLoop);
+    builder.CreateCondBr(cond, trueBlock, afterLoop);
 
-    //循环体
-    builder.SetInsertPoint(for_loop);
-
-    //获取dist[k]的值
+    // 获取 dist[k] 的值
+    builder.SetInsertPoint(trueBlock);
     llvm::Value *distPtr = builder.CreateGEP(global_values["dist"]->getValueType(), global_values["dist"], {llvm::ConstantInt::get(llvm::Type::getInt64Ty(ir_module->getContext()), 0), kValue}, "distPtr");
     llvm::Value *edgePtr = builder.CreateLoad(llvm::PointerType::get(struct_types["struct.Edge_s"], 0), distPtr, "edgePtr");
     llvm::Value *wPtr = builder.CreateGEP(struct_types["struct.Edge_s"], edgePtr, {llvm::ConstantInt::get(llvm::Type::getInt32Ty(ir_module->getContext()), 0), llvm::ConstantInt::get(llvm::Type::getInt32Ty(ir_module->getContext()), 2)}, "wPtr");
@@ -125,9 +127,6 @@ void buildCaculateDistance(std::shared_ptr<llvm::Module> ir_module)
     llvm::Value *cmp = builder.CreateICmpSLT(kDistValue, minDistance, "cmp");
 
     //创建条件分支
-    llvm::BasicBlock *trueBlock = llvm::BasicBlock::Create(ir_module->getContext(), "trueBlock", caculateDistance);
-    llvm::BasicBlock *falseBlock = llvm::BasicBlock::Create(ir_module->getContext(), "falseBlock", caculateDistance);
-
     builder.CreateCondBr(cmp, trueBlock, falseBlock);
 
     //真分支：更新minDistance
@@ -143,7 +142,7 @@ void buildCaculateDistance(std::shared_ptr<llvm::Module> ir_module)
     builder.CreateStore(kValueAdd, k);
     builder.CreateBr(for_loop);
 
-    //循环结束
+    // 循环结束
     builder.SetInsertPoint(afterLoop);
     builder.CreateRetVoid();
 }
@@ -183,7 +182,8 @@ void buildMain(std::shared_ptr<llvm::Module> ir_module)
     llvm::Value *minDistanceValue = builder.CreateLoad(llvm::Type::getInt64Ty(ir_module->getContext()), global_values["minDistance"], "minDistanceValue");
     llvm::Value *sum = builder.CreateAdd(wValue, llvm::ConstantInt::get(llvm::Type::getInt64Ty(ir_module->getContext()), 5), "sum1");
     sum = builder.CreateAdd(sum, llvm::ConstantInt::get(llvm::Type::getInt64Ty(ir_module->getContext()), 10), "sum2");
-    llvm::Value *allDistValue = builder.CreateLoad(llvm::Type::getInt64Ty(ir_module->getContext()), allDistPtr, "allDistValue");
+    llvm::Value *allDistValue = builder.CreateLoad(llvm::Type::getInt32Ty(ir_module->getContext()), allDistPtr, "allDistValue");
+    //这里不是getInt64啊
 
     llvm::Function *printf = functions["printf"];
     llvm::Value *formatStr1 = builder.CreateGlobalStringPtr("%lld %lld %d\n", "formatStr1");
