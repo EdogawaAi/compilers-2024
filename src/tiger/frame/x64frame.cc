@@ -87,6 +87,9 @@ public:
       : offset(offset), parent_frame(parent) {}
 
   /* TODO: Put your lab5-part1 code here */
+  llvm::Value *ToLLVMVal(llvm::Value *frame_addr_ptr) const override {
+    return ir_builder->CreateAdd(frame_addr_ptr, ir_builder->getInt64(offset));
+  }
 };
 
 class X64Frame : public Frame {
@@ -115,6 +118,11 @@ public:
 
 frame::Frame *NewFrame(temp::Label *name, std::list<bool> formals) {
   /* TODO: Put your lab5-part1 code here */
+  auto *frame = new X64Frame(name, new std::list<frame::Access *>());
+  for (auto &formal : formals) {
+    frame->formals_->push_back(frame->AllocLocal(formal));
+  }
+  return frame;
 }
 
 /**
