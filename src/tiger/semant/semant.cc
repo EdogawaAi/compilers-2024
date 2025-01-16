@@ -47,20 +47,20 @@ type::Ty *SubscriptVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    int labelcount,
                                    err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab4 code here */
-  auto var_actual_ty = var_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
-  auto subscript_ty = subscript_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
+  auto *var_actual_ty = var_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
+  auto *subscript_ty = subscript_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
 
-  if (typeid(var_actual_ty) != typeid(type::ArrayTy)) {
+  if (typeid(*var_actual_ty) != typeid(type::ArrayTy)) {
     errormsg->Error(pos_, "array type required");
     return type::IntTy::Instance();
   }
 
-  if (typeid(subscript_ty) != typeid(type::IntTy)) {
+  if (typeid(*subscript_ty) != typeid(type::IntTy)) {
     errormsg->Error(pos_, "integer required");
     return type::IntTy::Instance();
   }
 
-  return static_cast<type::ArrayTy *>(var_actual_ty)->ty_;
+  return static_cast<type::ArrayTy *>(var_actual_ty)->ty_->ActualTy();
 
 }
 
@@ -225,15 +225,16 @@ type::Ty *IfExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab4 code here */
-  venv->BeginScope(); tenv->BeginScope();
+  auto *test_ty = test_->SemAnalyze(venv, tenv, labelcount, errormsg);
+  if (typeid(*test_ty) != typeid(type::IntTy)) {
+    errormsg->Error(pos_, "while test must be integer");
+  }
 
-  auto body_ty = body_->SemAnalyze(venv, tenv, -1, errormsg);
-  if (typeid(body_ty) != typeid(type::VoidTy)) {
+  auto *body_ty = body_->SemAnalyze(venv, tenv, labelcount + 1, errormsg)->ActualTy();
+  if (typeid(*body_ty) != typeid(type::VoidTy)) {
     errormsg->Error(pos_, "while body must produce no value");
     return type::VoidTy::Instance();
   }
-
-  venv->EndScope(); tenv->EndScope();
 
   return type::VoidTy::Instance();
 }
@@ -287,11 +288,11 @@ type::Ty *LetExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 type::Ty *ArrayExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
                                int labelcount, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab4 code here */
-  auto array_ty = tenv->Look(typ_)->ActualTy();
+  auto *array_ty = tenv->Look(typ_)->ActualTy();
   if (!array_ty) {
     errormsg->Error(pos_, "undefined type %s", typ_->Name().c_str());
   }
-  if (typeid(array_ty) != typeid(type::ArrayTy)) {
+  if (typeid(*array_ty) != typeid(type::ArrayTy)) {
     errormsg->Error(pos_, "not array type", typ_->Name().c_str());
   }
 
@@ -369,24 +370,28 @@ void FunctionDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
 void VarDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
                         err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab4 code here */
-  auto init_ty = init_->SemAnalyze(venv, tenv, labelcount, errormsg);
-  if (typ_ == nullptr) {
-    if (init_ty->IsSameType(type::NilTy::Instance())) {
-      errormsg->Error(pos_, "init should not be nil without type specified");
-    }
-    venv->Enter(var_, new env::VarEntry(init_ty));
-  } else {
-    auto typ_ty = tenv->Look(typ_);
+  type::Ty *typ_ty = nullptr;
+  if (typ_) {
+    typ_ty = tenv->Look(typ_);
     if (!typ_ty) {
       errormsg->Error(pos_, "undefined type %s", typ_->Name().c_str());
-      venv->Enter(var_, new env::VarEntry(init_ty));
       return;
     }
-    if (!init_ty->IsSameType(typ_ty)) {
-      errormsg->Error(pos_, "type mismatch");
-    }
-    venv->Enter(var_, new env::VarEntry(typ_ty));
   }
+
+  auto *init_ty = init_->SemAnalyze(venv, tenv, labelcount, errormsg);
+  auto *init_nil_ty = dynamic_cast<type::NilTy *>(init_ty);
+  if (init_nil_ty) {
+    if (!typ_ || !dynamic_cast<type::RecordTy *>(typ_ty)) {
+      errormsg->Error(pos_, "undefined type %s", typ_->Name().c_str());
+      return;
+    }
+  }
+  else if (typ_ && !init_ty->IsSameType(typ_ty->ActualTy())) {
+    errormsg->Error(pos_, "type mismatch");
+    return;
+  }
+  venv->Enter(var_, new env::VarEntry(init_ty));
 }
 
 
@@ -441,7 +446,7 @@ void TypeDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
 
 type::Ty *NameTy::SemAnalyze(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab4 code here */
-  auto name_ty = tenv->Look(name_);
+  auto *name_ty = tenv->Look(name_);
   if (!name_ty) {
     errormsg->Error(pos_, "undefined type %s", name_->Name().c_str());
     return type::IntTy::Instance();
@@ -458,7 +463,7 @@ type::Ty *RecordTy::SemAnalyze(env::TEnvPtr tenv,
 type::Ty *ArrayTy::SemAnalyze(env::TEnvPtr tenv,
                               err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab4 code here */
-  auto array_ty = tenv->Look(array_);
+  auto *array_ty = tenv->Look(array_);
   if (!array_ty) {
     errormsg->Error(pos_, "undefined type %s", array_->Name().c_str());
     return type::IntTy::Instance();
