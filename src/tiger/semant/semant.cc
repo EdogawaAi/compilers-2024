@@ -382,13 +382,20 @@ void VarDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv, int labelcount,
   auto *init_ty = init_->SemAnalyze(venv, tenv, labelcount, errormsg);
   auto *init_nil_ty = dynamic_cast<type::NilTy *>(init_ty);
   if (init_nil_ty) {
-    if (!typ_ || !dynamic_cast<type::RecordTy *>(typ_ty)) {
-      errormsg->Error(pos_, "undefined type %s", typ_->Name().c_str());
+    if (!typ_) {
+      errormsg->Error(init_->pos_,
+                      "init should not be nil without type specified");
+      return;
+    }
+    auto *record_ty = dynamic_cast<type::RecordTy *>(typ_ty);
+    if (!record_ty) {
+      errormsg->Error(init_->pos_,
+                      "init should not be nil without type specified");
       return;
     }
   }
   else if (typ_ && !init_ty->IsSameType(typ_ty->ActualTy())) {
-    errormsg->Error(pos_, "type mismatch");
+    errormsg->Error(init_->pos_, "type mismatch");
     return;
   }
   venv->Enter(var_, new env::VarEntry(init_ty));
