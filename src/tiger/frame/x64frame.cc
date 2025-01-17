@@ -87,6 +87,9 @@ public:
       : offset(offset), parent_frame(parent) {}
 
   /* TODO: Put your lab5-part1 code here */
+  llvm::Value *ToLLVMVal(llvm::Value *frame_addr_ptr) const override {
+    return ir_builder->CreateAdd(frame_addr_ptr, ir_builder->getInt64(offset));
+  }
 };
 
 class X64Frame : public Frame {
@@ -115,6 +118,11 @@ public:
 
 frame::Frame *NewFrame(temp::Label *name, std::list<bool> formals) {
   /* TODO: Put your lab5-part1 code here */
+  auto *frame = new X64Frame(name, new std::list<frame::Access *>());
+  for (auto &formal : formals) {
+    frame->formals_->push_back(frame->AllocLocal(formal));
+  }
+  return frame;
 }
 
 /**
@@ -127,6 +135,27 @@ frame::Frame *NewFrame(temp::Label *name, std::list<bool> formals) {
 assem::InstrList *ProcEntryExit1(std::string_view function_name,
                                  assem::InstrList *body) {
   // TODO: your lab5 code here
+  auto callee_saves = reg_manager->CalleeSaves()->GetList();
+  auto *temp_list = new temp::TempList();
+
+  for (auto &callee : callee_saves) {
+    auto *new_temp = temp::TempFactory::NewTemp();
+    body->Insert(body->GetList().begin(), new assem::MoveInstr("movq `s0,`d0", new temp::TempList(new_temp), new temp::TempList(callee)));
+    temp_list->Append(new_temp);
+  }
+
+  body->Append(new assem::LabelInstr(std::string(function_name) + "_end"));
+
+  auto reg_iter = callee_saves.rbegin();
+  auto temp_iter = temp_list->GetList().rbegin();
+
+  while (reg_iter != callee_saves.rend() && temp_iter != temp_list->GetList().rend()) {
+    body->Append(new assem::MoveInstr("movq `s0,`d0", new temp::TempList(*reg_iter), new temp::TempList(*temp_iter)));
+
+    reg_iter++;
+    temp_iter++;
+  }
+
   return body;
 }
 
@@ -154,6 +183,11 @@ assem::Proc *ProcEntryExit3(std::string_view function_name,
   std::string epilogue = "";
 
   // TODO: your lab5 code here
+  body->Insert(body->GetList().begin(), new assem::OperInstr("subq $" + std::string(function_name) + "_framesize_local,`d0", new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP)), new temp::TempList(), nullptr));
+  body->Insert(body->GetList().begin(), new assem::LabelInstr(std::string(function_name)));
+
+  body->Append(new assem::OperInstr("addq $" + std::string(function_name) + "_framesize_local,`d0", new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP)), new temp::TempList(), nullptr));
+  body->Append(new assem::OperInstr("retq", new temp::TempList(), new temp::TempList, nullptr));
   return new assem::Proc(prologue, body, epilogue);
 }
 

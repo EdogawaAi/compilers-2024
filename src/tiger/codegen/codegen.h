@@ -45,7 +45,7 @@ public:
   // check if the value is %sp in llvm
   bool IsRsp(llvm::Value *val, std::string_view function_name) const {
     // TODO: your lab5 code here
-    return false;
+    return val->getName() == std::string(function_name) + "_sp";
   }
 
   // bb is to add move instruction to record which block it jumps from
@@ -66,6 +66,32 @@ private:
   temp::Temp *phi_temp_;
   std::unique_ptr<canon::Traces> traces_;
   std::unique_ptr<AssemInstr> assem_instr_;
+
+  void LoadInstrSel(assem::InstrList *instr_list, llvm::LoadInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void BinaryOperatorInstrSel(assem::InstrList *instr_list, llvm::BinaryOperator &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void SDivInstrSel(assem::InstrList *instr_list, llvm::SDivOperator &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void PtrToIntInstrSel(assem::InstrList *instr_list, llvm::PtrToIntInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void IntToPtrInstrSel(assem::InstrList *instr_list, llvm::IntToPtrInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void GetElementPtrInstrSel(assem::InstrList *instr_list, llvm::GetElementPtrInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void StoreInstrSel(assem::InstrList *instr_list, llvm::StoreInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void ZExtInstrSel(assem::InstrList *instr_list, llvm::ZExtInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void CallInstrSel(assem::InstrList *instr_list, llvm::CallInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void RetInstrSel(assem::InstrList *instr_list, llvm::ReturnInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void BrInstrSel(assem::InstrList *instr_list, llvm::BranchInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void ICmpInstrSel(assem::InstrList *instr_list, llvm::ICmpInst &inst, std::string_view function_name, llvm::BasicBlock *bb);
+
+  void PhiInstrSel(assem::InstrList *instr_list, llvm::PHINode &inst, std::string_view function_name, llvm::BasicBlock *bb);
 };
 
 } // namespace cg

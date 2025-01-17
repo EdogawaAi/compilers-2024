@@ -73,6 +73,7 @@ protected:
 class Access {
 public:
   /* TODO: Put your lab5-part1 code here */
+  virtual llvm::Value *ToLLVMVal(llvm::Value *frame_addr_ptr) const = 0;
 
   virtual ~Access() = default;
 };

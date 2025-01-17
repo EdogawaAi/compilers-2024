@@ -10,6 +10,7 @@ parse.cc
 
 # CMake build directories
 build/
+# My CLion Configure
 cmake-build-debug/
 
 # CMake
