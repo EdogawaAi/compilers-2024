@@ -156,29 +156,12 @@ void CodeGen::InstrSel(assem::InstrList *instr_list, llvm::Instruction &inst,
 }
 
 void CodeGen::LoadInstrSel(assem::InstrList *instr_list, llvm::LoadInst &inst, std::string_view function_name, llvm::BasicBlock *bb) {
-  std::string src_str = "(`s0)";
-  std::string dst_str = "`d0";
-  auto *src_temp = new temp::TempList();
-  auto *dst_temp = new temp::TempList();
-
-  if (llvm::GlobalVariable *gv = llvm::dyn_cast<llvm::GlobalVariable>(inst.getPointerOperand())) {
-    src_str = gv->getName().str() + "(%rip)";
-  }
-  else if (IsRsp(inst.getPointerOperand(), function_name)) {
-    src_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
+  if (auto *gv = llvm::dyn_cast<llvm::GlobalVariable>(inst.getPointerOperand())) {
+    instr_list->Append(new assem::MoveInstr("movq " + gv->getName().str() + "(%rip),`d0", new temp::TempList(temp_map_->at(&inst)), new temp::TempList()));
   }
   else {
-    src_temp->Append(temp_map_->at(inst.getPointerOperand()));
+    instr_list->Append(new assem::OperInstr("movq (`s0),`d0", new temp::TempList(temp_map_->at(&inst)), new temp::TempList(temp_map_->at(inst.getPointerOperand())), nullptr));
   }
-
-  if (IsRsp(&inst, function_name)) {
-    dst_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
-  }
-  else {
-    dst_temp->Append(temp_map_->at(&inst));
-  }
-
-  instr_list->Append(new assem::MoveInstr("movq " + src_str + "," + dst_str, dst_temp, src_temp));
 }
 
 void CodeGen::BinaryOperatorInstrSel(assem::InstrList *instr_list, llvm::BinaryOperator &inst, std::string_view function_name, llvm::BasicBlock *bb) {
@@ -232,43 +215,22 @@ void CodeGen::BinaryOperatorInstrSel(assem::InstrList *instr_list, llvm::BinaryO
 }
 
 void CodeGen::SDivInstrSel(assem::InstrList *instr_list, llvm::SDivOperator &inst, std::string_view function_name, llvm::BasicBlock *bb) {
-  std::string src_str1 = "`s0";
-  std::string src_str2 = "`s0";
-  std::string dst_str = "`d0";
-  auto *src_temp1 = new temp::TempList();
-  auto *src_temp2 = new temp::TempList();
-  auto *dst_temp = new temp::TempList();
-
-  if (IsRsp(&inst, function_name)) {
-    return;
-  }
-  else {
-    dst_temp->Append(temp_map_->at(&inst));
-  }
-
   if (auto *ci = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(0))) {
-    src_str1 = "$" + std::to_string(ci->getSExtValue());
-  }
-  else if (IsRsp(inst.getOperand(0), function_name)) {
-    src_temp1->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
+    instr_list->Append(new assem::MoveInstr("movq $" + std::to_string(ci->getSExtValue()) + ",`d0", new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RAX)), new temp::TempList()));
   }
   else {
-    src_temp1->Append(temp_map_->at(inst.getOperand(0)));
+    instr_list->Append(new assem::MoveInstr("movq `s0,`d0", new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RAX)), new temp::TempList(temp_map_->at(inst.getOperand(0)))));
   }
-
+  instr_list->Append(new assem::OperInstr("cqto", new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RDX)), new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RAX)), nullptr));
   if (auto *ci = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(1))) {
-    src_str2 = "$" + std::to_string(ci->getSExtValue());
-  }
-  else if (IsRsp(inst.getOperand(1), function_name)) {
-    src_temp2->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
+    auto tmp = temp::TempFactory::NewTemp();
+    instr_list->Append(new assem::MoveInstr("movq $" + std::to_string(ci->getSExtValue()) + ",`d0", new temp::TempList(tmp), new temp::TempList()));
+    instr_list->Append(new assem::OperInstr("idivq `s0", new temp::TempList({reg_manager->GetRegister(frame::X64RegManager::Reg::RAX), reg_manager->GetRegister(frame::X64RegManager::Reg::RDX)}), new temp::TempList({tmp, reg_manager->GetRegister(frame::X64RegManager::Reg::RAX), reg_manager->GetRegister(frame::X64RegManager::Reg::RDX)}), nullptr));
   }
   else {
-    src_temp2->Append(temp_map_->at(inst.getOperand(1)));
+    instr_list->Append(new assem::OperInstr("idivq `s0", new temp::TempList({reg_manager->GetRegister(frame::X64RegManager::Reg::RAX), reg_manager->GetRegister(frame::X64RegManager::Reg::RDX)}), new temp::TempList({temp_map_->at(inst.getOperand(1)), reg_manager->GetRegister(frame::X64RegManager::Reg::RAX), reg_manager->GetRegister(frame::X64RegManager::Reg::RDX)}), nullptr));
   }
-
-  instr_list->Append(new assem::MoveInstr("movq " + src_str1 + ",`d0", new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RAX)), src_temp1));
-  instr_list->Append(new assem::OperInstr("idivq " + src_str2, new temp::TempList(), src_temp2, nullptr));
-  instr_list->Append(new assem::MoveInstr("movq `s0," + dst_str, dst_temp, new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RAX))));
+  instr_list->Append(new assem::MoveInstr("movq `s0,`d0", new temp::TempList(temp_map_->at(&inst)), new temp::TempList(reg_manager->GetRegister(frame::X64RegManager::Reg::RAX))));
 }
 
 void CodeGen::IntToPtrInstrSel(assem::InstrList *instr_list, llvm::IntToPtrInst &inst, std::string_view function_name, llvm::BasicBlock *bb) {
@@ -297,32 +259,12 @@ void CodeGen::GetElementPtrInstrSel(assem::InstrList *instr_list, llvm::GetEleme
 }
 
 void CodeGen::StoreInstrSel(assem::InstrList *instr_list, llvm::StoreInst &inst, std::string_view function_name, llvm::BasicBlock *bb) {
-  std::string src_str = "`s0";
-  std::string dst_str = "(`d0)";
-  auto *src_temp = new temp::TempList();
-  auto *dst_temp = new temp::TempList();
-
-  if (auto *gv = llvm::dyn_cast<llvm::GlobalVariable>(inst.getPointerOperand())) {
-    dst_str = gv->getName().str() + "(%rip)";
-  }
-  else if (IsRsp(inst.getPointerOperand(), function_name)) {
-    dst_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
-  }
-  else {
-    dst_temp->Append(temp_map_->at(inst.getPointerOperand()));
-  }
-
   if (auto *ci = llvm::dyn_cast<llvm::ConstantInt>(inst.getValueOperand())) {
-    src_str = "$" + std::to_string(ci->getSExtValue());
-  }
-  else if (IsRsp(inst.getOperand(0), function_name)) {
-    src_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
+    instr_list->Append(new assem::MoveInstr("movq $" + std::to_string(ci->getSExtValue()) + ",(`s0)", new temp::TempList(), new temp::TempList(temp_map_->at(inst.getPointerOperand()))));
   }
   else {
-    src_temp->Append(temp_map_->at(inst.getOperand(0)));
+    instr_list->Append(new assem::OperInstr("movq `s0,(`s1)", new temp::TempList(), new temp::TempList({temp_map_->at(inst.getValueOperand()), temp_map_->at(inst.getPointerOperand())}), nullptr));
   }
-
-  instr_list->Append(new assem::MoveInstr("movq " + src_str + "," + dst_str, dst_temp, src_temp));
 }
 
 void CodeGen::ZExtInstrSel(assem::InstrList *instr_list, llvm::ZExtInst &inst, std::string_view function_name, llvm::BasicBlock *bb) {
@@ -407,20 +349,13 @@ void CodeGen::RetInstrSel(assem::InstrList *instr_list, llvm::ReturnInst &inst, 
 
 void CodeGen::BrInstrSel(assem::InstrList *instr_list, llvm::BranchInst &inst, std::string_view function_name, llvm::BasicBlock *bb) {
   if (inst.isConditional()) {
-    std::string src_str = "`s0";
-    auto *src_temp = new temp::TempList();
-
     if (auto *ci = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(0))) {
-      src_str = "$" + std::to_string(ci->getSExtValue());
-    }
-    else if (IsRsp(inst.getOperand(0), function_name)) {
-      src_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
+      instr_list->Append(new assem::OperInstr("cmpq $" + std::to_string(ci->getSExtValue()) + ",$1", new temp::TempList(), new temp::TempList(), nullptr));
     }
     else {
-      src_temp->Append(temp_map_->at(inst.getOperand(0)));
+      instr_list->Append(new assem::OperInstr("cmpq $1,`s0", new temp::TempList(), new temp::TempList(temp_map_->at(inst.getOperand(0))), nullptr));
     }
 
-    instr_list->Append(new assem::OperInstr("cmpq " + src_str + ",$1", new temp::TempList(), src_temp, nullptr));
     instr_list->Append(new assem::MoveInstr("movq $" + std::to_string(bb_map_->at(inst.getParent())) + ",`d0", new temp::TempList(phi_temp_), new temp::TempList()));
 
     instr_list->Append(new assem::OperInstr("jne " + inst.getOperand(1)->getName().str(), new temp::TempList(), new temp::TempList(), new assem::Targets(new std::vector<temp::Label *>({temp::LabelFactory::NamedLabel(inst.getOperand(1)->getName().str())}))));
@@ -436,55 +371,45 @@ void CodeGen::BrInstrSel(assem::InstrList *instr_list, llvm::BranchInst &inst, s
 
 void CodeGen::ICmpInstrSel(assem::InstrList *instr_list, llvm::ICmpInst &inst, std::string_view function_name, llvm::BasicBlock *bb) {
   std::string op_str;
-  std::string src_str = "`s0";
-  std::string dst_str = "`d0";
-  auto *src_temp = new temp::TempList();
-  auto *dst_temp = new temp::TempList();
+  if (auto *ci1 = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(0))) {
+    if (auto *ci2 = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(1))) {
+      instr_list->Append(new assem::OperInstr("cmpq $" + std::to_string(ci2->getSExtValue()) + ",$" + std::to_string(ci1->getSExtValue()), new temp::TempList(), new temp::TempList(), nullptr));
+    }
+    else {
+      instr_list->Append(new assem::OperInstr("cmpq `s0,$" + std::to_string(ci1->getSExtValue()), new temp::TempList(), new temp::TempList(temp_map_->at(inst.getOperand(1))), nullptr));
+    }
+  }
+  else if (auto *ci2 = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(1))) {
+    instr_list->Append(new assem::OperInstr("cmpq $" + std::to_string(ci2->getSExtValue()) + ",`s0", new temp::TempList(), new temp::TempList(temp_map_->at(inst.getOperand(0))), nullptr));
+  }
+  else {
+    instr_list->Append(new assem::OperInstr( "cmpq `s0,`s1", new temp::TempList(), new temp::TempList({temp_map_->at(inst.getOperand(1)), temp_map_->at(inst.getOperand(0))}),  nullptr));
+  }
+
+
+  instr_list->Append(new assem::OperInstr("movq $0,`d0", new temp::TempList(temp_map_->at(&inst)), new temp::TempList(), nullptr));
 
   auto predicate = inst.getPredicate();
 
-  if (predicate == llvm::CmpInst::ICMP_EQ) {
+  if (predicate == llvm::CmpInst::Predicate::ICMP_EQ) {
     op_str = "sete ";
   }
-  else if (predicate == llvm::CmpInst::ICMP_NE) {
+  else if (predicate == llvm::CmpInst::Predicate::ICMP_NE) {
     op_str = "setne ";
   }
-  else if (predicate == llvm::CmpInst::ICMP_SLT) {
+  else if (predicate == llvm::CmpInst::Predicate::ICMP_SLT) {
     op_str = "setl ";
   }
-  else if (predicate == llvm::CmpInst::ICMP_SLE) {
+  else if (predicate == llvm::CmpInst::Predicate::ICMP_SLE) {
     op_str = "setle ";
   }
-  else if (predicate == llvm::CmpInst::ICMP_SGT) {
+  else if (predicate == llvm::CmpInst::Predicate::ICMP_SGT) {
     op_str = "setg ";
   }
-  else if (predicate == llvm::CmpInst::ICMP_SGE) {
+  else if (predicate == llvm::CmpInst::Predicate::ICMP_SGE) {
     op_str = "setge ";
   }
 
-  if (auto *ci = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(0))) {
-    dst_str = "$" + std::to_string(ci->getSExtValue());
-  }
-  else if (IsRsp(inst.getOperand(0), function_name)) {
-    dst_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
-  }
-  else {
-    dst_temp->Append(temp_map_->at(inst.getOperand(0)));
-  }
-
-  if (auto *ci = llvm::dyn_cast<llvm::ConstantInt>(inst.getOperand(1))) {
-    src_str = "$" + std::to_string(ci->getSExtValue());
-  }
-  else if (IsRsp(inst.getOperand(1), function_name)) {
-    src_temp->Append(reg_manager->GetRegister(frame::X64RegManager::Reg::RSP));
-  }
-  else {
-    src_temp->Append(temp_map_->at(inst.getOperand(1)));
-  }
-
-  instr_list->Append(new assem::MoveInstr("cmpq " + src_str + "," + dst_str, dst_temp, src_temp));
-
-  instr_list->Append(new assem::MoveInstr("movq $0,`d0", new temp::TempList(temp_map_->at(&inst)), new temp::TempList()));
   instr_list->Append(new assem::OperInstr(op_str + "`d0", new temp::TempList(temp_map_->at(&inst)), new temp::TempList(), nullptr));
 }
 
